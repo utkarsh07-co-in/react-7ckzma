@@ -1,26 +1,13 @@
-
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './styles/index.css';
-import App from './App';
-import { CometChat } from '@cometchat-pro/chat';
-import { cometChat } from './app.config'
-const appID = cometChat.APP_ID
-const region = cometChat.REGION
-const appSetting = new CometChat.AppSettingsBuilder()
-  .subscribePresenceForAllUsers()
-  .setRegion(region)
-  .build()
-CometChat.init(appID, appSetting)
-  .then(() => {
-    ReactDOM.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>,
-      document.getElementById('root')
-    )
-    console.log('Initialization completed successfully')
-  })
-  .catch((error) => {
-    console.log('Initialization failed with error:', error)
-  })
+export { CometChatCreateGroup } from "./CometChatCreateGroup";
+export { CometChatGroupDetails } from "./CometChatGroupDetails";
+export { CometChatGroupList } from "./CometChatGroupList";
+export { CometChatGroupListItem } from "./CometChatGroupListItem";
+export { CometChatViewGroupMemberList } from "./CometChatViewGroupMemberList";
+export { CometChatViewGroupMemberListItem } from "./CometChatViewGroupMemberListItem";
+export { CometChatAddGroupMemberList } from "./CometChatAddGroupMemberList";
+export { CometChatAddGroupMemberListItem } from "./CometChatAddGroupMemberListItem";
+export { CometChatBanGroupMemberList } from "./CometChatBanGroupMemberList";
+export { CometChatBanGroupMemberListItem } from "./CometChatBanGroupMemberListItem";
+export { CometChatGroupListWithMessages } from "./CometChatGroupListWithMessages";
+export { CometChatTransferOwnershipMemberList } from "./CometChatTransferOwnershipMemberList";
+export { CometChatTransferOwnershipMemberListItem } from "./CometChatTransferOwnershipMemberListItem";
