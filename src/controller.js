@@ -1,150 +1,144 @@
-import { CometChat } from "@cometchat-pro/chat";
+import { CometChat } from "@cometchat-pro/chat"
 
-import * as enums from "../../../util/enums.js";
-import MessageFilter from "./MessageFilter";
+export class CometChatManager {
 
-export class MessageListManager {
+    loggedInUser;
+    isUserLoggedIn;
 
-    item = {};
-    type = "";
-    parentMessageId = null;
-    messageRequest = null;
-    limit = 30;
-    
-    msgListenerId = "message_" + new Date().getTime();
-    groupListenerId = "group_" + new Date().getTime();
-    callListenerId = "call_" + new Date().getTime(); 
+    getLoggedInUser() {
 
-    constructor(context, item, type, parentMessageId) {
+        let timerCounter = 10000;
+        let timer = 0;
+        
+        return new Promise((resolve, reject) => {
+            
+            if(timerCounter === timer) reject(`timer reached ${timerCounter}`);
 
-        this.item = item;
-        this.type = type;
-        this.parentMessageId = parentMessageId;
-        this.context = context;
-    }
+            if(this.loggedInUser) resolve(this.loggedInUser);
 
-    initializeMessageRequest = () => {
+            if(!CometChat.isInitialized()) reject("CometChat not initialized");
 
-        return new Promise(resolve => {
+            this.isUserLoggedIn = setInterval(() => {
 
-            let categories = {};
-            let types = {};
+                CometChat.getLoggedinUser().then(user => {
 
-            let messageFilterManager = new MessageFilter(this.context);
-
-            messageFilterManager
-                .getCategories()
-                .then(categoryList => categories = Object.keys(categoryList))
-                .then(() => messageFilterManager.getTypes())
-                .then(typeList => types = Object.keys(typeList))
-                .then(() => this.context.FeatureRestriction.isHideDeletedMessagesEnabled())
-                .then(hideDeletedMessages => {
-                    if (this.type === CometChat.ACTION_TYPE.TYPE_USER) {
-                        if (this.parentMessageId) {
-                            this.messageRequest = new CometChat.MessagesRequestBuilder().setUID(this.item.uid).setParentMessageId(this.parentMessageId).setCategories(categories).setTypes(types).hideDeletedMessages(hideDeletedMessages).setLimit(this.limit).build();
-                        } else {
-                            this.messageRequest = new CometChat.MessagesRequestBuilder().setUID(this.item.uid).setCategories(categories).setTypes(types).hideReplies(true).hideDeletedMessages(hideDeletedMessages).setLimit(this.limit).build();
-                        }
-                        resolve(this.messageRequest);
-                    } else if (this.type === CometChat.ACTION_TYPE.TYPE_GROUP) {
-                        if (this.parentMessageId) {
-                            this.messageRequest = new CometChat.MessagesRequestBuilder().setGUID(this.item.guid).setParentMessageId(this.parentMessageId).setCategories(categories).setTypes(types).hideDeletedMessages(hideDeletedMessages).setLimit(this.limit).build();
-                        } else {
-                            this.messageRequest = new CometChat.MessagesRequestBuilder().setGUID(this.item.guid).setCategories(categories).setTypes(types).hideReplies(true).hideDeletedMessages(hideDeletedMessages).setLimit(this.limit).build();
-                        }
-                        resolve(this.messageRequest);
-                    }
+                    this.loggedInUser = user;
+                    clearInterval(this.isUserLoggedIn);
+                    resolve(user);
+                    
+                }, error => {
+                    console.log(error);
+                    reject(error);
                 });
+
+                timer += 100;
+            }, 100);
 
         });
     }
 
-    fetchPreviousMessages() {
-        return this.messageRequest.fetchPrevious();
+    static blockUsers = (userList) => {
+
+        let promise = new Promise((resolve, reject) => {
+
+            CometChat.blockUsers(userList).then(
+                list => resolve(list),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
     }
 
-    attachListeners(callback) {
-        
-        CometChat.addMessageListener(
-            this.msgListenerId,
-            new CometChat.MessageListener({
-                onTextMessageReceived: textMessage => {
-                    callback(enums.TEXT_MESSAGE_RECEIVED, textMessage);
-                },
-                onMediaMessageReceived: mediaMessage => {
-                    callback(enums.MEDIA_MESSAGE_RECEIVED, mediaMessage);
-                },
-                onCustomMessageReceived: customMessage => {
-                    callback(enums.CUSTOM_MESSAGE_RECEIVED, customMessage);
-                },
-                onMessagesDelivered: messageReceipt => {
-                    callback(enums.MESSAGE_DELIVERED, messageReceipt);
-                },
-                onMessagesRead: messageReceipt => {
-                    callback(enums.MESSAGE_READ, messageReceipt);
-                },
-                onMessageDeleted: deletedMessage => {
-                    callback(enums.MESSAGE_DELETED, deletedMessage);
-                },
-                onMessageEdited: editedMessage => {
-                    callback(enums.MESSAGE_EDITED, editedMessage);
-                },
-                onTransientMessageReceived: transientMessage => {
-                    callback(enums.TRANSIENT_MESSAGE_RECEIVED, transientMessage);
-                }
-            })
-        );
+    static unblockUsers = (userList) => {
 
-        CometChat.addGroupListener(
-            this.groupListenerId,
-            new CometChat.GroupListener({
-                onGroupMemberScopeChanged: (message, changedUser, newScope, oldScope, changedGroup) => {
-                    callback(enums.GROUP_MEMBER_SCOPE_CHANGED, message, changedGroup, {"user": changedUser, "scope": newScope});
-                }, 
-                onGroupMemberKicked: (message, kickedUser, kickedBy, kickedFrom) => {
-                    callback(enums.GROUP_MEMBER_KICKED, message, kickedFrom, {"user": kickedUser, "hasJoined": false});
-                }, 
-                onGroupMemberBanned: (message, bannedUser, bannedBy, bannedFrom) => {
-                    callback(enums.GROUP_MEMBER_BANNED, message, bannedFrom, {"user": bannedUser});
-                }, 
-                onGroupMemberUnbanned: (message, unbannedUser, unbannedBy, unbannedFrom) => {
-                    callback(enums.GROUP_MEMBER_UNBANNED, message, unbannedFrom, {"user": unbannedUser});
-                }, 
-                onMemberAddedToGroup: (message, userAdded, userAddedBy, userAddedIn) => {
-                    callback(enums.GROUP_MEMBER_ADDED, message, userAddedIn, {"user": userAdded, "hasJoined": true});
-                }, 
-                onGroupMemberLeft: (message, leavingUser, group) => {
-                    callback(enums.GROUP_MEMBER_LEFT, message, group, {"user": leavingUser});
-                }, 
-                onGroupMemberJoined: (message, joinedUser, joinedGroup) => {
-                    callback(enums.GROUP_MEMBER_JOINED, message, joinedGroup, {"user": joinedUser});
-                }
-            })
-        );
-        
-        CometChat.addCallListener(
-            this.callListenerId,
-            new CometChat.CallListener({
-                onIncomingCallReceived: call => {
-                  callback(enums.INCOMING_CALL_RECEIVED, call);
-                },
-                onIncomingCallCancelled: call => {
-                    callback(enums.INCOMING_CALL_CANCELLED, call);
-                },
-                onOutgoingCallAccepted: call => {
-                    callback(enums.OUTGOING_CALL_ACCEPTED, call);
-                },
-                onOutgoingCallRejected: call => {
-                  callback(enums.OUTGOING_CALL_REJECTED, call);
-                }
-            })
-        );
+        let promise = new Promise((resolve, reject) => {
+
+            CometChat.unblockUsers(userList).then(
+                list => resolve(list),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
     }
 
-    removeListeners() {
+    static call = (receiverID, receiverType, callType) => {
 
-        CometChat.removeMessageListener(this.msgListenerId);
-        CometChat.removeGroupListener(this.groupListenerId);
-        CometChat.removeCallListener(this.callListenerId);
+        let promise = new Promise((resolve, reject) => {
+
+            const call = new CometChat.Call(receiverID, callType, receiverType);
+            CometChat.initiateCall(call).then(
+                call => resolve(call),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
+
+    }
+
+    static audioCall = (receiverID, receiverType, callType) => {
+
+        let promise = new Promise((resolve, reject) => {
+
+            const call = new CometChat.Call(receiverID, callType, receiverType);
+            CometChat.initiateCall(call).then(
+                call => resolve(call),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
+    
+    }
+
+    static videoCall = (receiverID, receiverType, callType) => {
+
+        let promise = new Promise((resolve, reject) => {
+
+            const call = new CometChat.Call(receiverID, callType, receiverType);
+            CometChat.initiateCall(call).then(
+                call => resolve(call),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
+    }
+
+    static acceptCall = (sessionId) => {
+
+        let promise = new Promise((resolve, reject) => {
+
+            CometChat.acceptCall(sessionId).then(
+                call => resolve(call),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
+    }
+
+    static rejectCall = (sessionId, rejectStatus) => {
+
+        let promise = new Promise((resolve, reject) => {
+
+            CometChat.rejectCall(sessionId, rejectStatus).then(
+                call => resolve(call),
+                error => reject(error)
+            );
+
+        });
+
+        return promise;
     }
 }
+
+export default CometChatManager;

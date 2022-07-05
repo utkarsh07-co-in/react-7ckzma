@@ -4,20 +4,19 @@ import { act } from "react-dom/test-utils";
 import "jest-canvas-mock";
 
 import { CometChatContextProvider } from "../../../util/CometChatContext";
-import { CometChatGroupListItem } from "./";
+import { CometChatUserListItem } from "./";
 
-describe("CometChatGroupListItem", () => {
+describe("CometChatUserListItem", () => {
 
     let container = null;
 
     it("renders without crashing", () => {
         container = document.createElement("div");
         ReactDOM.render(
-            <CometChatContextProvider group="">
-                <CometChatGroupListItem />
+            <CometChatContextProvider user="">
+                <CometChatUserListItem />
             </CometChatContextProvider>,
             container,
         );
     });
-
 });
