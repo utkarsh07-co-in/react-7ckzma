@@ -1,73 +1,127 @@
-export const messageContainerStyle = () => {
+export const stickerWrapperStyle = (context, keyframes) => {
 
-    return {
-        alignSelf: "flex-end",
-        marginBottom: "16px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
-        maxWidth: "65%",
-        clear: "both",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: "0",
+	const slideAnimation = keyframes`
+    from {
+        bottom: -55px
     }
-}
-
-export const messageWrapperStyle = () => {
-
-    return {
-        width: "auto",
-        flex: "1 1",
-        alignSelf: "flex-end",
-        display: "flex",
-    }
-}
-
-export const messageImgWrapper = context => {
-
-	const mq = [...context.theme.breakPoints];
+    to {
+        bottom: 0px
+    }`;
 
 	return {
-		display: "inline-block",
-		alignSelf: "flex-end",
-		maxWidth: "300px",
-		height: "200px",
-		cursor: "pointer",
-		flexShrink: "0",
-		img: {
-			borderRadius: "8px",
-			height: "100%",
+		backgroundColor: `${context.theme.backgroundColor.grey}`,
+		border: `1px solid ${context.theme.borderColor.primary}`,
+		borderBottom: "none",
+		animation: `${slideAnimation} 0.5s ease-out`,
+		borderRadius: "10px 10px 0 0",
+		height: "215px",
+		display: "flex",
+		flexDirection: "column",
+		justifyContent: "center",
+	};
+};
+
+export const stickerSectionListStyle = context => {
+
+	return {
+		borderTop: `1px solid ${context.theme.borderColor.primary}`,
+		backgroundColor: `${context.theme.backgroundColor.silver}`,
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		textTransform: "uppercase",
+		overflowX: "auto",
+		overflowY: "hidden",
+		padding: "10px",
+		"::-webkit-scrollbar": {
+			background: `${context.theme.backgroundColor.primary}`,
 		},
-		[`@media ${mq[1]}, ${mq[2]}`]: {
-			minWidth: "50px",
-			maxWidth: "150px",
-			height: "100px",
-			padding: "2px 2px",
+		"::-webkit-scrollbar-thumb": {
+			background: `${context.theme.backgroundColor.silver}`,
 		},
 	};
 };
 
-export const messageInfoWrapperStyle = () => {
+export const sectionListItemStyle = () => {
 
     return {
-        alignSelf: "flex-end",
-        display: "flex",
-        justifyContent: "flex-end",
-        alignItems: "center",
-        height: "25px",
-        padding: "4px 8px",
+
+        height: "35px",
+        width: "35px",
+        cursor: "pointer",
+        flexShrink: "0",
+        ":not(:first-of-type)": {
+            marginLeft: "16px",
+        },
     }
 }
 
-export const messageReactionsWrapperStyle = () => {
+export const stickerListStyle = () => {
 
     return {
+        height: "calc(100% - 50px)",
         display: "flex",
-        alignSelf: "flex-end",
-        width: "100%",
+        overflowX: "hidden",
+        overflowY: "auto",
         flexWrap: "wrap",
-        justifyContent: "flex-end",
-        minHeight: "36px",
+        justifyContent: "space-between",
+        alignItems: "center"
     }
 }
+
+export const stickerItemStyle = context => {
+
+	const mq = [...context.theme.breakPoints];
+
+	return {
+		minWidth: "50px",
+		minHeight: "50px",
+		maxWidth: "70px",
+		maxHeight: "70px",
+		cursor: "pointer",
+		flexShrink: "0",
+		marginRight: "20px",
+		[`@media ${mq[1]}, ${mq[2]}, ${mq[3]}`]: {
+			maxWidth: "70px",
+			maxHeight: "70px",
+		},
+	};
+};
+
+export const stickerMsgStyle = () => {
+
+    return {
+        overflow: "hidden",
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "absolute",
+        top: "35%",
+    }
+}
+
+export const stickerMsgTxtStyle = context => {
+
+	return {
+		margin: "0",
+		height: "30px",
+		color: `${context.theme.color.secondary}`,
+		fontSize: "24px!important",
+		fontWeight: "600",
+	};
+};
+
+export const stickerCloseStyle = (img, context) => {
+	
+	return {
+		width: "20px",
+		height: "20px",
+		borderRadius: "50%",
+		alignSelf: "flex-end",
+		mask: `url(${img}) center center no-repeat`,
+		backgroundColor: `${context.theme.primaryColor}`,
+		cursor: "pointer",
+		margin: "8px 8px 0 0",
+	};
+};

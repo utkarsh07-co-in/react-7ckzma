@@ -1,261 +1,196 @@
 import React from "react";
-import twemoji from "twemoji";
-import parse from "html-react-parser";
 /** @jsxRuntime classic */
 /** @jsx jsx */
-import { jsx } from "@emotion/core";
-import PropTypes from "prop-types";
+import { jsx, keyframes } from '@emotion/core';
+import PropTypes from 'prop-types';
 import { CometChat } from "@cometchat-pro/chat";
 
-import { CometChatMessageActions, CometChatThreadedMessageReplyCount, CometChatReadReceipt, CometChatLinkPreview } from "../";
-import { CometChatMessageReactions } from "../Extensions";
+import { CometChatContext } from "../../../../util/CometChatContext";
+import * as enums from "../../../../util/enums.js";
 
-import { CometChatContext } from "../../../util/CometChatContext";
-import { linkify, checkMessageForExtensionsData,countEmojiOccurences } from "../../../util/common";
-import * as enums from "../../../util/enums.js";
+import { theme } from "../../../../resources/theme";
+import Translator from "../../../../resources/localization/translator";
 
-import Translator from "../../../resources/localization/translator";
-import { theme } from "../../../resources/theme";
-
-import {
-	messageContainerStyle,
-	messageWrapperStyle,
-	messageTxtWrapperStyle,
-	messageTxtStyle,
-	messageInfoWrapperStyle,
-	messageReactionsWrapperStyle,
+import { 
+    stickerWrapperStyle, 
+    stickerSectionListStyle, 
+    stickerListStyle,
+    sectionListItemStyle,
+    stickerItemStyle,
+    stickerMsgStyle,
+    stickerMsgTxtStyle,
+    stickerCloseStyle
 } from "./style";
 
-class CometChatSenderTextMessageBubble extends React.Component {
-	static contextType = CometChatContext;
+import closeIcon from "./resources/close.svg";
 
-	constructor(props) {
-		super(props);
+class CometChatStickerKeyboard extends React.PureComponent {
 
-		this.messageTextRef = React.createRef();
+    static contextType = CometChatContext;
 
-		this.state = {
-			translatedMessage: "",
-			isHovering: false,
-			enableLargerSizeEmojis: false,
-		};
-	}
+    constructor(props, context) {
 
-	shouldComponentUpdate(nextProps, nextState) {
-		
-		const currentMessageStr = JSON.stringify(this.props.message);
-		const nextMessageStr = JSON.stringify(nextProps.message);
-		
-		if (currentMessageStr !== nextMessageStr 
-		|| this.state.isHovering !== nextState.isHovering
-		|| this.state.translatedMessage !== nextState.translatedMessage
-		|| this.state.enableLargerSizeEmojis !== nextState.enableLargerSizeEmojis) {
-			return true;
-		}
+        super(props, context);
 
-		return false;
-	}
+        this.decoratorMessage = Translator.translate("LOADING", context.language);
 
-	componentDidMount() {
+        this.state = {
+            stickerlist: [],
+            stickerset: {},
+            activestickerlist: [],
+            activestickerset: null
+        }
+    }
 
-		this.enableLargerSizeEmojis();
-	}
+    componentDidMount() {
+        this.getStickers();
+    }
 
-	componentDidUpdate(prevProps, prevState) {
-		
-		if (prevProps.message !== this.props.message) {
+    getStickers = () => {
 
-			this.setState({ translatedMessage: "" });
-		}
+        CometChat.callExtension('stickers', 'GET', 'v1/fetch', null).then(stickers => {
 
-		this.enableLargerSizeEmojis();
-	}
+            // Stickers received
+            let activeStickerSet = null; 
+            const customStickers = (stickers.hasOwnProperty("customStickers")) ? stickers["customStickers"] : [];
+            const defaultStickers = (stickers.hasOwnProperty("defaultStickers")) ? stickers["defaultStickers"] : [];
 
-	getMessageText = () => {
-		let messageText = this.props.message.text;
+            defaultStickers.sort(function (a, b) {
+                return a.stickerSetOrder - b.stickerSetOrder;
+            });
 
-		//xss extensions data
-		const xssData = checkMessageForExtensionsData(this.props.message, "xss-filter");
-		if (xssData && xssData.hasOwnProperty("sanitized_text") && xssData.hasOwnProperty("hasXSS") && xssData.hasXSS === "yes") {
-			messageText = xssData.sanitized_text;
-		}
+            customStickers.sort(function (a, b) {
+                return a.stickerSetOrder - b.stickerSetOrder;
+            });
 
-		//datamasking extensions data
-		const maskedData = checkMessageForExtensionsData(this.props.message, "data-masking");
-		if (maskedData && maskedData.hasOwnProperty("data") && maskedData.data.hasOwnProperty("sensitive_data") && maskedData.data.hasOwnProperty("message_masked") && maskedData.data.sensitive_data === "yes") {
-			messageText = maskedData.data.message_masked;
-		}
+            const stickerList = [...defaultStickers, ...customStickers];
+            
+            if (stickerList.length === 0) {
+                this.decoratorMessage = Translator.translate("NO_STICKERS_FOUND", this.context.language);
+            }
 
-		//profanity extensions data
-		const profaneData = checkMessageForExtensionsData(this.props.message, "profanity-filter");
-		if (profaneData && profaneData.hasOwnProperty("profanity") && profaneData.hasOwnProperty("message_clean") && profaneData.profanity === "yes") {
-			messageText = profaneData.message_clean;
-		}
+            const stickerSet = stickerList.reduce((r, sticker, index) => {
 
-		const formattedText = linkify(messageText);
+                const { stickerSetName } = sticker;
+                if (index === 0) {
+                    activeStickerSet = stickerSetName;
+                }
 
-		const emojiParsedMessage = twemoji.parse(formattedText, { folder: "svg", ext: ".svg" });
+                r[stickerSetName] = [...r[stickerSetName] || [], { ...sticker}];
 
-		let count = countEmojiOccurences(emojiParsedMessage,"class=\"emoji\"");
+                return r;
+            }, {});
 
-		const parsedMessage = parse(emojiParsedMessage);
-		
-		let showVariation = true;
-		//if larger size emojis feature is disabled
-		if (this.state.enableLargerSizeEmojis === false) {
-			showVariation = false;
-		}
+            let activeStickerList = [];
+            if (Object.keys(stickerSet).length) {
 
-		messageText = (
-			<div css={messageTxtWrapperStyle(this.context)} className="message__txt__wrapper">
-				<p css={messageTxtStyle(this.props, showVariation, count)} className="message__txt">
-					{parsedMessage}
-					{this.state.translatedMessage}
-				</p>
-			</div>
-		);
+                Object.keys(stickerSet).forEach(key => {
+                    stickerSet[key].sort(function (a, b) {
+                        return a.stickerOrder - b.stickerOrder;
+                    });
+                });
 
-		return messageText;
-	};
+                activeStickerList = stickerSet[activeStickerSet];
+            }
+            
+            this.setState({ 
+                "stickerlist": stickerList, 
+                "stickerset": stickerSet, 
+                "activestickerlist": activeStickerList, 
+                "activestickerset": activeStickerSet 
+            });
 
-	translateMessage = message => {
-		const messageId = message.id;
-		const messageText = message.text;
+        }).catch(error => {
+            
+            this.decoratorMessage = Translator.translate("SOMETHING_WRONG", this.context.language);
+            this.setState({ "activestickerlist": [], "stickerset": {} });
+        });
+    }
 
-		const browserLanguageCode = Translator.getBrowserLanguage().toLowerCase();
-		let translateToLanguage = browserLanguageCode;
-		if (browserLanguageCode.indexOf("-") !== -1) {
-			const browserLanguageArray = browserLanguageCode.split("-");
-			translateToLanguage = browserLanguageArray[0];
-		}
+    sendStickerMessage = (stickerItem) => {
+        this.props.actionGenerated(enums.ACTIONS["SEND_STICKER"], stickerItem);
+    }
 
-		let translatedMessage = "";
-		CometChat.callExtension("message-translation", "POST", "v2/translate", {
-			msgId: messageId,
-			text: messageText,
-			languages: [translateToLanguage],
-		})
-			.then(result => {
-				if (result.hasOwnProperty("language_original") && result["language_original"] !== translateToLanguage) {
-					if (result.hasOwnProperty("translations") && result.translations.length) {
-						const messageTranslation = result.translations[0];
-						if (messageTranslation.hasOwnProperty("message_translated")) {
-							translatedMessage = `\n(${messageTranslation["message_translated"]})`;
-						}
-					} else {
-						this.props.actionGenerated(enums.ACTIONS["ERROR"], [], "SOMETHING_WRONG");
-					}
-				} else {
-					this.props.actionGenerated(enums.ACTIONS["INFO"], [], "SAME_LANGUAGE_MESSAGE");
-				}
+    onStickerSetClicked = (sectionItem) => {
 
-				this.setState({ translatedMessage: translatedMessage });
-			})
-			.catch(error => this.props.actionGenerated(enums.ACTIONS["ERROR"], [], "SOMETHING_WRONG"));
-	};
+        this.setState({ activestickerlist: [] }, () => {
 
-	enableLargerSizeEmojis = () => {
-		this.context.FeatureRestriction.isLargerSizeEmojisEnabled()
-			.then(response => {
-				if (response !== this.state.enableLargerSizeEmojis) {
-					this.setState({ enableLargerSizeEmojis: response });
-				}
-			})
-			.catch(error => {
-				if (this.state.enableLargerSizeEmojis !== false) {
-					this.setState({ enableLargerSizeEmojis: false });
-				}
-			});
-	};
+            const stickerSet = { ...this.state.stickerset };
+            const activeStickerList = stickerSet[sectionItem];
+            this.setState({ "activestickerset": sectionItem, "activestickerlist": activeStickerList });
+        });
+    }
 
-	handleMouseHover = () => {
-		this.setState(this.toggleHoverState);
-	};
+    closeStickerKeyboard = () => {
+        this.props.actionGenerated(enums.ACTIONS["CLOSE_STICKER_KEYBOARD"]);
+    }
 
-	toggleHoverState = state => {
-		return {
-			isHovering: !state.isHovering,
-		};
-	};
+    render() {
 
-	actionHandler = (action, message) => {
-		switch (action) {
-			case enums.ACTIONS["REACT_TO_MESSAGE"]:
-				this.props.actionGenerated(action, message);
-				break;
-			case enums.ACTIONS["VIEW_THREADED_MESSAGE"]:
-				this.props.actionGenerated(action, message);
-				break;
-			case enums.ACTIONS["DELETE_MESSAGE"]:
-				this.props.actionGenerated(action, message);
-				break;
-			case enums.ACTIONS["EDIT_MESSAGE"]:
-				this.props.actionGenerated(action, message);
-				break;
-			case enums.ACTIONS["TRANSLATE_MESSAGE"]:
-				this.translateMessage(message);
-				break;
-			default:
-				break;
-		}
-	};
+        let messageContainer = null;
+        if (this.state.activestickerlist.length === 0) {
+            messageContainer = (
+                <div css={stickerMsgStyle()} className="stickers__decorator-message">
+                    <p css={stickerMsgTxtStyle(this.context)} className="decorator-message">{this.decoratorMessage}</p>
+                </div>
+            );
+        }
 
-	render() {
+        let stickers = null;
+        if (Object.keys(this.state.stickerset).length) {
 
-		let messageText = this.getMessageText();
+            const sectionItems = Object.keys(this.state.stickerset).map((sectionItem, key) => {
 
-		//linkpreview extensions data
-		const linkPreviewData = checkMessageForExtensionsData(this.props.message, "link-preview");
-		if (linkPreviewData && linkPreviewData.hasOwnProperty("links") && linkPreviewData["links"].length) {
-			messageText = <CometChatLinkPreview message={this.props.message} messageText={messageText} />;
-		}
+                const stickerSetThumbnail = this.state.stickerset[sectionItem][0]["stickerUrl"];
+                return( <div  key={key}  className="stickers__sectionitem" css={sectionListItemStyle()}  onClick={() => this.onStickerSetClicked(sectionItem)}>
+                    <img src={stickerSetThumbnail} alt={sectionItem} />
+                </div>
+                );
+            });
 
-		//messagereactions extensions data
-		let messageReactions = null;
-		const reactionsData = checkMessageForExtensionsData(this.props.message, "reactions");
-		if (reactionsData) {
-			if (Object.keys(reactionsData).length) {
-				messageReactions = (
-					<div css={messageReactionsWrapperStyle()} className="message__reaction__wrapper">
-						<CometChatMessageReactions message={this.props.message} actionGenerated={this.props.actionGenerated} />
-					</div>
-				);
-			}
-		}
+            let activeStickerList = [];
+            if (this.state.activestickerlist.length) {
 
-		let toolTipView = null;
-		if (this.state.isHovering) {
-			toolTipView = <CometChatMessageActions message={this.props.message} actionGenerated={this.actionHandler} />;
-		}
+                const stickerList = [...this.state.activestickerlist];
+                activeStickerList = stickerList.map((stickerItem, key) => {
 
-		return (
-			<div css={messageContainerStyle()} className="sender__message__container message__text" onMouseEnter={this.handleMouseHover} onMouseLeave={this.handleMouseHover}>
-				{toolTipView}
-				<div css={messageWrapperStyle()} className="message__wrapper" ref={this.messageTextRef}>
-					{messageText}
-				</div>
+                    return (
+                        <div key={key} css={stickerItemStyle(this.context)} onClick={() => this.sendStickerMessage(stickerItem)} className="stickers__listitem">
+                            <img src={stickerItem.stickerUrl} alt={stickerItem.stickerName} />
+                        </div>
+                    );
+                });
+            }
 
-				{messageReactions}
+            stickers = (
+                <React.Fragment>
+                    <div css={stickerCloseStyle(closeIcon, this.context)} className="stickers__close" onClick={this.closeStickerKeyboard}></div>
+                    <div css={stickerListStyle(this.props)} className="stickers__list">
+                        {activeStickerList}
+                    </div>
+                    <div css={stickerSectionListStyle(this.context)} className="stickers__sections">
+                        {sectionItems}
+                    </div>
+                </React.Fragment>
+            );
+        }
 
-				<div css={messageInfoWrapperStyle()} className="message__info__wrapper">
-					<CometChatThreadedMessageReplyCount message={this.props.message} actionGenerated={this.props.actionGenerated} />
-					<CometChatReadReceipt message={this.props.message} />
-				</div>
-			</div>
-		);
-	}
+        return (
+            <div css={stickerWrapperStyle(this.context, keyframes)} className="stickers">
+                {messageContainer}
+                {stickers}
+            </div>
+        );
+    }
 }
 
 // Specifies the default values for props:
-CometChatSenderTextMessageBubble.defaultProps = {
-	theme: theme,
-	actionGenerated: () => {},
+CometChatStickerKeyboard.defaultProps = {
+    theme: theme
 };
 
-CometChatSenderTextMessageBubble.propTypes = {
-	theme: PropTypes.object,
-	actionGenerated: PropTypes.func.isRequired,
-	message: PropTypes.object.isRequired,
-};
+CometChatStickerKeyboard.propTypes = {
+    theme: PropTypes.object
+}
 
-export { CometChatSenderTextMessageBubble };
+export { CometChatStickerKeyboard };
